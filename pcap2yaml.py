@@ -8,58 +8,44 @@ import struct
 import sys
 from collections import OrderedDict
 
-ABSOLUTE = 0
-RELATIVE = 1
-FROM_END = 2
-
-OPT_END = 0
-OPT_COMMENT = 1
-
-LINKTYPE_ETHERNET = 1
-
-TYPE_IPV4 = 0x0800
-
-PROTOCOL_TCP = 6
-PROTOCOL_UDP = 17
-
-class HexInt(int): pass
-class OrderedList(list): pass
-
-class CustomDumper(yaml.Dumper):
-
-    def __init__(self, *args, **kargs):
-        kargs['default_flow_style'] = False
-        super().__init__(*args, **kargs)
-        self.yaml_representers = self.yaml_representers.copy()
-        self.yaml_representers[HexInt] = lambda dumper, data: yaml.ScalarNode('tag:yaml.org,2002:int', hex(data))
-        self.yaml_representers[list] = lambda dumper, data: dumper.represent_sequence(
-            'tag:yaml.org,2002:seq', data, flow_style=True)
-        self.yaml_representers[bytes] = lambda dumper, data: dumper.represent_sequence(
-            'tag:yaml.org,2002:seq', (HexInt(x) for x in data), flow_style=True)
-        self.yaml_representers[OrderedList] = lambda dumper, data: dumper.represent_list(data)
-        self.yaml_representers[OrderedDict] = lambda dumper, data: dumper.represent_dict(data.items())
-
-
-class InterfaceParam:
-
-    tsresol = 10 ** -6
-    link_type = 1
-
+from common import *
 
 class Parser:
 
-    def __init__(self, filename):
+    def __init__(self, input_file, output_file):
         self.__configure_endianess(0x1A2B3C4D)
-        self.__input_file = open(filename, 'rb')
-        self.__input_file.seek(0, FROM_END)
-        self.__length = self.__input_file.tell()
+
+        if input_file != '-':
+            self.__input_file = open(input_file, 'rb')
+            self.__input_file.seek(0, FROM_END)
+        else:
+            self.__input_file = sys.stdin
+
+        if output_file != '-':
+            self.__output_file = open(output_file, 'w')
+        else:
+            self.__output_file = sys.stdout
+
         self.__input_file.seek(0, ABSOLUTE)
         self.__interfaces = []
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        if self.__input_file != sys.stdin:
+            self.__input_file.close()
+        if self.__output_file != sys.stdout:
+            self.__output_file.close()
+
     def parse(self):
-        while self.__input_file.tell() < self.__length:
+        while True:
+            temp = self.__input_file.read(4)
+            if len(temp) == 0:
+                break
+
             info = OrderedDict()
-            info['block_type'] = HexInt(self.__unpack(self.fmt_uint32))
+            info['block_type'] = HexInt(struct.unpack(self.fmt_uint32, temp)[0])
             if info['block_type'] == 0x0A0D0D0A:
                 self.__parse_section_header(info)
             elif info['block_type'] == 0x00000001:
@@ -72,7 +58,7 @@ class Parser:
                 self.__parse_unknown_block(info)
                 print('Unknown block_type', hex(info['block_type']), file=sys.stderr)
 
-            print(yaml.dump(info, Dumper=CustomDumper))
+            print(yaml.dump(info, Dumper=CustomDumper), file=self.__output_file)
 
     def __parse_section_header(self, info):
         self.__input_file.seek(4, RELATIVE)
@@ -351,6 +337,8 @@ class Parser:
 
 parser = argparse.ArgumentParser()
 parser.add_argument('input_file', help='input file')
+parser.add_argument('output_file', nargs='?', default='-', help='output file')
 args = parser.parse_args()
 
-Parser(args.input_file).parse()
+with Parser(args.input_file, args.output_file) as parser:
+    parser.parse()
