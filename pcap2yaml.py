@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import argparse
 import datetime
 import yaml
 import struct
@@ -14,7 +15,15 @@ FROM_END = 2
 OPT_END = 0
 OPT_COMMENT = 1
 
+LINKTYPE_ETHERNET = 1
+
+TYPE_IPV4 = 0x0800
+
+PROTOCOL_TCP = 6
+PROTOCOL_UDP = 17
+
 class HexInt(int): pass
+class OrderedList(list): pass
 
 class CustomDumper(yaml.Dumper):
 
@@ -22,10 +31,20 @@ class CustomDumper(yaml.Dumper):
         kargs['default_flow_style'] = False
         super().__init__(*args, **kargs)
         self.yaml_representers = self.yaml_representers.copy()
-        self.yaml_representers[OrderedDict] = lambda dumper, data: dumper.represent_dict(data.items())
         self.yaml_representers[HexInt] = lambda dumper, data: yaml.ScalarNode('tag:yaml.org,2002:int', hex(data))
+        self.yaml_representers[list] = lambda dumper, data: dumper.represent_sequence(
+            'tag:yaml.org,2002:seq', data, flow_style=True)
         self.yaml_representers[bytes] = lambda dumper, data: dumper.represent_sequence(
             'tag:yaml.org,2002:seq', (HexInt(x) for x in data), flow_style=True)
+        self.yaml_representers[OrderedList] = lambda dumper, data: dumper.represent_list(data)
+        self.yaml_representers[OrderedDict] = lambda dumper, data: dumper.represent_dict(data.items())
+
+
+class InterfaceParam:
+
+    tsresol = 10 ** -6
+    link_type = 1
+
 
 class Parser:
 
@@ -35,7 +54,7 @@ class Parser:
         self.__input_file.seek(0, FROM_END)
         self.__length = self.__input_file.tell()
         self.__input_file.seek(0, ABSOLUTE)
-        self.__tsresol = []
+        self.__interfaces = []
 
     def parse(self):
         while self.__input_file.tell() < self.__length:
@@ -91,11 +110,11 @@ class Parser:
             12: ('if_os', self.__unpack_utf8),
         })
 
+        interface_param = InterfaceParam()
+        interface_param.link_type = info['link_type']
         if 'if_tsresol' in info['options']:
-            self.__tsresol.append(
-                info['options']['if_tsresol']['base'] ** (-info['options']['if_tsresol']['power']))
-        else:
-            self.__tsresol.append(10 ** -6)
+            interface_param.tsresol = info['options']['if_tsresol']['base'] ** (-info['options']['if_tsresol']['power'])
+        self.__interfaces.append(interface_param)
 
         block_total_length_post = self.__unpack(self.fmt_uint32)
         assert block_total_length_pre == block_total_length_post
@@ -106,11 +125,18 @@ class Parser:
         block_payload_end = self.__input_file.tell() + block_total_length_pre - 12
 
         info['interface_id'] = self.__unpack(self.fmt_uint32)
-        info['datetime'] = self.__unpack_timestamp(self.__tsresol[info['interface_id']])
+        interface_param = self.__interfaces[info['interface_id']]
+        info['datetime'] = self.__unpack_timestamp(interface_param.tsresol)
         info['captured_length'] = self.__unpack(self.fmt_uint32)
         info['packet_length'] = self.__unpack(self.fmt_uint32)
-        info['packed_data'] = self.__parse_aligned(
-            lambda x: self.__input_file.read(x), info['captured_length'], 4)
+
+        if interface_param.link_type == LINKTYPE_ETHERNET:
+            self.__parse_aligned(
+                lambda x: self.__parse_ethernet_data(info, x), info['captured_length'], 4)
+        else:
+            info['unknown_data'] = self.__parse_aligned(
+                lambda x: self.__input_file.read(x), info['captured_length'], 4)
+            print('Unknown link_type', interface_param.link_type, file=sys.stderr)
 
         if block_payload_end < self.__input_file.tell():
             info['options'] = self.__parse_options({
@@ -143,12 +169,123 @@ class Parser:
 
     def __parse_unknown_block(self, info):
         block_total_length_pre = self.__unpack(self.fmt_uint32)
-
-        block_size = block_total_length_pre - 12
-        info['unknown_payload'] = self.__input_file.read(block_size)
-
+        self.__parse_unknown_payload(info, block_total_length_pre - 12)
         block_total_length_post = self.__unpack(self.fmt_uint32)
         assert block_total_length_pre == block_total_length_post
+
+
+    def __parse_ethernet_data(self, info, length):
+        ethernet_data = OrderedDict()
+        info['ethernet_data'] = ethernet_data
+        start_offset = self.__input_file.tell()
+
+        ethernet_data['destination'] = self.__input_file.read(6)
+        ethernet_data['source'] = self.__input_file.read(6)
+        ethernet_data['type'] = self.__unpack('>H')
+
+        payload_length= length - (self.__input_file.tell() - start_offset)
+        if ethernet_data['type'] == TYPE_IPV4:
+            self.__parse_type_ipv4(info, payload_length)
+        else:
+            self.__parse_unknown_payload(info, payload_length)
+
+
+    def __parse_type_ipv4(self, info, length):
+        ipv4_data = OrderedDict()
+        info['ipv4_data'] = ipv4_data
+        start_offset = self.__input_file.tell()
+
+        temp = self.__unpack('B')
+        ipv4_data['version'] = temp >> 4
+        ipv4_data['header_length'] = temp & 0x0F
+        ipv4_data['dsf'] = HexInt(self.__unpack('>B'))
+        ipv4_data['total_length'] = self.__unpack('>H')
+        ipv4_data['identification'] = HexInt(self.__unpack('>H'))
+        temp = self.__unpack('>H')
+        ipv4_data['flags'] = HexInt(temp >> 13)
+        ipv4_data['flagment_offset'] = temp & 0x1FFF
+        ipv4_data['ttl'] = self.__unpack('>B')
+        ipv4_data['protocol'] = self.__unpack('>B')
+        ipv4_data['header_checksum'] = HexInt(self.__unpack('>H'))
+        ipv4_data['source'] = [x for x in self.__input_file.read(4)]
+        ipv4_data['destination'] = [x for x in self.__input_file.read(4)]
+
+        payload_length = length - (self.__input_file.tell() - start_offset)
+        if ipv4_data['protocol'] == PROTOCOL_TCP:
+            self.__parse_protocol_tcp(info, payload_length)
+        elif ipv4_data['protocol'] == PROTOCOL_UDP:
+            self.__parse_protocol_udp(info, payload_length)
+        else:
+            self.__parse_unknown_payload(info, payload_length)
+
+    def __parse_protocol_tcp(self, info, length):
+        tcp_data = OrderedDict()
+        info['tcp_data'] = tcp_data
+        start_offset = self.__input_file.tell()
+
+        tcp_data['source_port'] = self.__unpack('>H')
+        tcp_data['destination_port'] = self.__unpack('>H')
+        tcp_data['seq_num'] = self.__unpack('>L')
+        tcp_data['ack_num'] = self.__unpack('>L')
+        temp = self.__unpack('>H')
+        tcp_data['header_length'] = temp >> 12
+        tcp_data['flags'] = temp & 0x1FF
+        tcp_data['window_size'] = self.__unpack('>H')
+        tcp_data['checksum'] = HexInt(self.__unpack('>H'))
+        tcp_data['urgent_pointer'] = self.__unpack('>H')
+
+        if tcp_data['header_length'] > 5:
+            tcp_options = OrderedList()
+            tcp_data['options'] = tcp_options
+            options_end = start_offset + 4 * tcp_data['header_length']
+            while self.__input_file.tell() < options_end:
+                option_code = self.__unpack('>B')
+                if option_code == 0:
+                    tcp_options.append('end')
+                    break
+                elif option_code == 1:
+                    tcp_options.append('nop')
+                    continue
+
+                option_size = self.__unpack('>B')
+                if option_code == 2:
+                    tcp_options.append({ 'max_segment_size': self.__unpack('>H') })
+                    assert option_size == 4
+                elif option_code == 3:
+                    tcp_options.append({ 'window_scale': self.__unpack('>B') })
+                    assert option_size == 3
+                elif option_code == 4:
+                    tcp_options.append('sack_permitted')
+                    assert option_size == 2
+                elif option_code == 8:
+                    tcp_options.append({ 'timestamps': [self.__unpack('>L'), self.__unpack('>L')] })
+                    assert option_size == 10
+                else:
+                    self.__input_file.seek(-2, RELATIVE)
+                    tcp_options.append(self.__input_file.read(option_size))
+
+        payload_length = length - (self.__input_file.tell() - start_offset)
+        if payload_length > 0:
+            self.__parse_unknown_payload(info, payload_length)
+
+
+    def __parse_protocol_udp(self, info, length):
+        udp_data = OrderedDict()
+        info['udp_data'] = udp_data
+        start_offset = self.__input_file.tell()
+
+        udp_data['source_port'] = self.__unpack('>H')
+        udp_data['destination_port'] = self.__unpack('>H')
+        udp_data['length'] = self.__unpack('>H')
+        udp_data['checksum'] = HexInt(self.__unpack('>H'))
+
+        payload_length = udp_data['length'] - (self.__input_file.tell() - start_offset)
+        if payload_length > 0:
+            self.__parse_unknown_payload(info, payload_length)
+
+
+    def __parse_unknown_payload(self, info, length):
+        info['unknown_payload'] = self.__input_file.read(length)
 
 
     def __parse_options(self, parsers):
@@ -212,5 +349,8 @@ class Parser:
         self.fmt_uint64 = prefix + 'Q'
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument('input_file', help='input file')
+args = parser.parse_args()
 
-Parser('http.pcapng').parse()
+Parser(args.input_file).parse()
