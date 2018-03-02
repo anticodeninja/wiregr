@@ -8,6 +8,8 @@ ABSOLUTE = 0
 RELATIVE = 1
 FROM_END = 2
 
+MAGIC = 0x1A2B3C4D
+
 OPT_END = 0
 OPT_COMMENT = 1
 
@@ -35,8 +37,20 @@ class CustomDumper(yaml.Dumper):
         self.yaml_representers[OrderedList] = lambda dumper, data: dumper.represent_list(data)
         self.yaml_representers[OrderedDict] = lambda dumper, data: dumper.represent_dict(data.items())
 
+class CustomLoader(yaml.Loader):
+
+    def __init__(self, *args, **kargs):
+        super().__init__(*args, **kargs)
+        self.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+                             lambda loader, node: OrderedDict(loader.construct_pairs(node)))
+
 
 class InterfaceParam:
 
     tsresol = 10 ** -6
     link_type = 1
+
+def align_value(value, multiplier):
+    if value % multiplier == 0:
+        return value
+    return value // multiplier * multiplier + multiplier

@@ -13,11 +13,10 @@ from common import *
 class Parser:
 
     def __init__(self, input_file, output_file):
-        self.__configure_endianess(0x1A2B3C4D)
+        self.__configure_endianess(MAGIC)
 
         if input_file != '-':
             self.__input_file = open(input_file, 'rb')
-            self.__input_file.seek(0, FROM_END)
         else:
             self.__input_file = sys.stdin
 
@@ -26,7 +25,6 @@ class Parser:
         else:
             self.__output_file = sys.stdout
 
-        self.__input_file.seek(0, ABSOLUTE)
         self.__interfaces = []
 
     def __enter__(self):
@@ -120,7 +118,7 @@ class Parser:
             self.__parse_aligned(
                 lambda x: self.__parse_ethernet_data(info, x), info['captured_length'], 4)
         else:
-            info['unknown_data'] = self.__parse_aligned(
+            info['unknown_payload'] = self.__parse_aligned(
                 lambda x: self.__input_file.read(x), info['captured_length'], 4)
             print('Unknown link_type', interface_param.link_type, file=sys.stderr)
 
@@ -328,7 +326,7 @@ class Parser:
         return datetime.datetime(1970, 1, 1) + datetime.timedelta(0, ticks * tsresol)
 
     def __configure_endianess(self, magic):
-        prefix = '>' if magic == 0x1A2B3C4D else '<'
+        prefix = '>' if magic == MAGIC else '<'
         self.fmt_uint8 = prefix + 'B'
         self.fmt_uint16 = prefix + 'H'
         self.fmt_uint32 = prefix + 'L'
