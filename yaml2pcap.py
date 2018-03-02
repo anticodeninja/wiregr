@@ -12,8 +12,8 @@ from common import *
 
 class Packer:
 
-    def __init__(self, input_file, output_file):
-        self.__configure_endianess(MAGIC)
+    def __init__(self, input_file, output_file, endianess):
+        self.__configure_endianess(endianess)
 
         if input_file != '-':
             self.__input_file = open(input_file, 'r')
@@ -297,8 +297,8 @@ class Packer:
         self.__pack_aligned(lambda: self.__output_file.write(bytes(info['unknown_payload'])), 4)
 
 
-    def __configure_endianess(self, magic):
-        prefix = '>' if magic == 0x1A2B3C4D else '<'
+    def __configure_endianess(self, endianess):
+        prefix = '>' if endianess == 'big' else '<'
         self.fmt_uint8 = prefix + 'B'
         self.fmt_uint16 = prefix + 'H'
         self.fmt_uint32 = prefix + 'L'
@@ -308,7 +308,8 @@ class Packer:
 parser = argparse.ArgumentParser()
 parser.add_argument('input_file', help='input file')
 parser.add_argument('output_file', nargs='?', default='-', help='output file')
+parser.add_argument('--endianess', default=sys.byteorder, choices=['big', 'little'], help='simulate endianess of machine')
 args = parser.parse_args()
 
-with Packer(args.input_file, args.output_file) as packer:
+with Packer(args.input_file, args.output_file, args.endianess) as packer:
     packer.pack()
