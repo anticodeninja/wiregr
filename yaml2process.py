@@ -12,45 +12,18 @@ from collections import OrderedDict
 from common import *
 from packets import *
 
-class MegaProcessor:
+
+class MegaProcessor(BaseWorker):
 
     def __init__(self, input_file, output_file, processors):
+        super().__init__(input_file, False, output_file, False)
         self.__processors = processors
 
-        if input_file != '-':
-            self.__input_file = open(input_file, 'r')
-        else:
-            self.__input_file = sys.stdin
-
-        if output_file != '-':
-            self.__output_file = open(output_file, 'w')
-        else:
-            self.__output_file = sys.stdout
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        if self.__input_file != sys.stdin:
-            self.__input_file.close()
-        if self.__output_file != sys.stdout:
-            self.__output_file.close()
-
     def process(self):
-        lines = []
-        for line in self.__input_file:
-            line = line.strip('\n\r')
-            if len(line) > 0:
-                lines.append(line)
-                continue
-
-            info = yaml.load('\n'.join(lines), Loader=CustomLoader)
-            lines = []
-
+        for info in self._reader.read():
             for processor in self.__processors:
                 processor.process(info)
-
-            print(yaml.dump(info, Dumper=CustomDumper), file=self.__output_file)
+            self._writer.write(info)
 
 
 class FixChecksums:

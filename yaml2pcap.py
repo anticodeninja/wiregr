@@ -11,49 +11,21 @@ from collections import OrderedDict
 from common import *
 from packets import *
 
-class Packer:
+class Packer(BaseWorker):
 
     def __init__(self, input_file, output_file, endianess):
+        super().__init__(input_file, False, output_file, True)
         self.__configure_endianess(endianess)
-
-        if input_file != '-':
-            self.__input_file = open(input_file, 'r')
-        else:
-            self.__input_file = sys.stdin
-
-        if output_file != '-':
-            self.__output_file = open(output_file, 'wb')
-        else:
-            self.__output_file = sys.stdout
-
-        self.__writer = StructWriter(self.__output_file)
         self.__interfaces = []
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        if self.__input_file != sys.stdin:
-            self.__input_file.close()
-        if self.__output_file != sys.stdout:
-            self.__output_file.close()
 
     def pack(self):
-        lines = []
-        for line in self.__input_file:
-            line = line.strip('\n\r')
-            if len(line) > 0:
-                lines.append(line)
-                continue
-
-            info = yaml.load('\n'.join(lines), Loader=CustomLoader)
-            lines = []
-
+        for info in self._reader.read():
             self.__pack(self.fmt_uint32, info['block_type'])
-            start_offset = self.__output_file.tell()
+            start_offset = self._output_file.tell()
             self.__pack(self.fmt_uint32, 0)
 
-            payload_offset = self.__output_file.tell()
+            payload_offset = self._output_file.tell()
             if info['block_type'] == 0x0A0D0D0A:
                 self.__pack_section_header(info)
             elif info['block_type'] == 0x00000001:
@@ -64,12 +36,12 @@ class Packer:
                 self.__pack_enhanced_packet_block(info)
             else:
                 self.__pack_unknown_payload(info)
-            block_total_length = self.__output_file.tell() - payload_offset + 12
+            block_total_length = self._output_file.tell() - payload_offset + 12
 
-            end_offset = self.__output_file.tell()
-            self.__output_file.seek(start_offset, ABSOLUTE)
+            end_offset = self._output_file.tell()
+            self._output_file.seek(start_offset, ABSOLUTE)
             self.__pack(self.fmt_uint32, block_total_length)
-            self.__output_file.seek(end_offset, ABSOLUTE)
+            self._output_file.seek(end_offset, ABSOLUTE)
             self.__pack(self.fmt_uint32, block_total_length)
 
     def __pack_section_header(self, info):
@@ -119,7 +91,7 @@ class Packer:
         if 'options' in info:
             self.__pack_options(info['options'], {
                 'ebp_flags': (2, lambda x: self.__pack(self.fmt_uint32, x)),
-                'ebp_hash': (3, lambda x: self.__output_file.write(bytes(x))),
+                'ebp_hash': (3, lambda x: self._output_file.write(bytes(x))),
                 'epb_dropcount': (4, lambda x: self.__pack(self.fmt_uint64, x)),
             })
 
@@ -137,7 +109,7 @@ class Packer:
 
 
     def __pack_ethernet_data(self, info):
-        ethernet_header_pack(self.__writer, info['ethernet_data'])
+        ethernet_header_pack(self._writer, info['ethernet_data'])
 
         if 'ipv4_data' in info:
             self.__pack_type_ipv4(info)
@@ -146,7 +118,7 @@ class Packer:
 
 
     def __pack_type_ipv4(self, info):
-        ipv4_header_pack(self.__writer, info['ipv4_data'])
+        ipv4_header_pack(self._writer, info['ipv4_data'])
 
         if 'tcp_data' in info:
             self.__pack_protocol_tcp(info)
@@ -157,14 +129,14 @@ class Packer:
 
 
     def __pack_protocol_tcp(self, info):
-        tcp_header_pack(self.__writer, info['tcp_data'])
+        tcp_header_pack(self._writer, info['tcp_data'])
 
         if 'unknown_payload' in info:
             self.__pack_unknown_payload(info)
 
 
     def __pack_protocol_udp(self, info):
-        udp_header_pack(self.__writer, info['udp_data'])
+        udp_header_pack(self._writer, info['udp_data'])
 
         if 'unknown_payload' in info:
             self.__pack_unknown_payload(info)
@@ -172,10 +144,10 @@ class Packer:
 
     def __pack_options(self, options, packers):
         for k, v in options.items():
-            start_offset = self.__output_file.tell()
+            start_offset = self._output_file.tell()
             self.__pack(self.fmt_uint32, 0)
 
-            payload_offset = self.__output_file.tell()
+            payload_offset = self._output_file.tell()
             if k == 'opt_comment':
                 code = 1
                 self.__pack_utf8(v)
@@ -184,40 +156,40 @@ class Packer:
                 code = packer[0]
                 packer[1](v)
             else:
-                self.__output_file.seek(-4, RELATIVE)
+                self._output_file.seek(-4, RELATIVE)
                 print('Unknown option', k, file=sys.stderr)
                 continue
-            size = self.__output_file.tell() - payload_offset
+            size = self._output_file.tell() - payload_offset
 
             self.__align(size, 4)
 
-            end_offset = self.__output_file.tell()
-            self.__output_file.seek(start_offset, ABSOLUTE)
+            end_offset = self._output_file.tell()
+            self._output_file.seek(start_offset, ABSOLUTE)
             self.__pack(self.fmt_uint16, code)
             self.__pack(self.fmt_uint16, size)
-            self.__output_file.seek(end_offset, ABSOLUTE)
+            self._output_file.seek(end_offset, ABSOLUTE)
 
         self.__pack(self.fmt_uint32, 0)
 
 
     def __pack_aligned(self, callback, align):
-        start_offset = self.__output_file.tell()
+        start_offset = self._output_file.tell()
         callback()
-        self.__align(self.__output_file.tell() - start_offset, align)
+        self.__align(self._output_file.tell() - start_offset, align)
 
 
     def __align(self, size, align):
         size = align_value(size, align) - size
         if size > 0:
-            self.__output_file.write(bytes([0] * size))
+            self._output_file.write(bytes([0] * size))
 
 
     def __pack(self, fmt, value):
-        self.__output_file.write(struct.pack(fmt, value))
+        self._output_file.write(struct.pack(fmt, value))
 
 
     def __pack_utf8(self, value):
-        self.__output_file.write(value.encode('utf-8'))
+        self._output_file.write(value.encode('utf-8'))
 
 
     def __pack_tsresol(self, value):
@@ -233,7 +205,7 @@ class Packer:
 
 
     def __pack_unknown_payload(self, info):
-        self.__pack_aligned(lambda: self.__output_file.write(bytes(info['unknown_payload'])), 4)
+        self.__pack_aligned(lambda: self._output_file.write(bytes(info['unknown_payload'])), 4)
 
 
     def __configure_endianess(self, endianess):

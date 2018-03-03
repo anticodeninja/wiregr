@@ -3,6 +3,7 @@
 
 import yaml
 import struct
+import sys
 from collections import OrderedDict
 
 ABSOLUTE = 0
@@ -13,13 +14,6 @@ MAGIC = 0x1A2B3C4D
 
 OPT_END = 0
 OPT_COMMENT = 1
-
-LINKTYPE_ETHERNET = 1
-
-TYPE_IPV4 = 0x0800
-
-PROTOCOL_TCP = 6
-PROTOCOL_UDP = 17
 
 class HexInt(int): pass
 class UnflowList(list): pass
@@ -89,6 +83,79 @@ class InterfaceParam:
 
     tsresol = 10 ** -6
     link_type = 1
+
+class BaseWorker:
+
+    def __init__(self, input_file, is_binary_input, output_file, is_binary_output):
+        if input_file != '-':
+            self._input_file = open(input_file, 'r' + ('b' if is_binary_input else ''))
+        else:
+            self._input_file = sys.stdin
+
+        if output_file != '-':
+            self._output_file = open(output_file, 'w' + ('b' if is_binary_output else ''))
+        else:
+            self._output_file = sys.stdout
+
+        if is_binary_input:
+            self._reader = StructReader(self._input_file)
+        else:
+            self._reader = YamlReader(self._input_file)
+
+        if is_binary_output:
+            self._writer = StructWriter(self._output_file)
+        else:
+            self._writer = YamlWriter(self._output_file)
+
+
+    def __enter__(self):
+        return self
+
+
+    def __exit__(self, type, value, traceback):
+        if self._input_file != sys.stdin:
+            self._input_file.close()
+        if self._output_file != sys.stdout:
+            self._output_file.close()
+
+class YamlReader:
+
+    def __init__(self, stream):
+        self.stream = stream
+
+    def read(self):
+        lines = []
+        for line in self.stream:
+            line = line.strip('\n\r')
+            if len(line) > 0:
+                lines.append(line)
+                continue
+
+            info = yaml.load('\n'.join(lines), Loader=CustomLoader)
+            yield info
+            lines = []
+
+
+class YamlWriter:
+
+    def __init__(self, stream):
+        self.stream = stream
+
+    def write(self, info):
+        print(yaml.dump(info, Dumper=CustomDumper), file=self.stream)
+
+
+class StructReader:
+
+    def __init__(self, stream):
+        self.stream = stream
+
+    def read_fmt(self, fmt):
+        block = self.stream.read(struct.calcsize(fmt))
+        return struct.unpack(fmt, block)[0]
+
+    def read_bytes(self, size):
+        return self.stream.read(size)
 
 
 class StructWriter:
