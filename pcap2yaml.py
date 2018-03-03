@@ -199,9 +199,9 @@ class Parser:
         tcp_data['urgent_pointer'] = self.__unpack('>H')
 
         if tcp_data['header_length'] > 5:
-            tcp_options = OrderedList()
+            tcp_options = UnflowList()
             tcp_data['options'] = tcp_options
-            options_end = start_offset + 4 * tcp_data['header_length']
+            options_end = self.__input_file.tell() + 4 * (tcp_data['header_length'] - 5)
             while self.__input_file.tell() < options_end:
                 option_code = self.__unpack('>B')
                 if option_code == 0:

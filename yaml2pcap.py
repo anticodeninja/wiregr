@@ -9,6 +9,7 @@ import sys
 from collections import OrderedDict
 
 from common import *
+from packets import *
 
 class Packer:
 
@@ -25,6 +26,7 @@ class Packer:
         else:
             self.__output_file = sys.stdout
 
+        self.__writer = StructWriter(self.__output_file)
         self.__interfaces = []
 
     def __enter__(self):
@@ -135,10 +137,7 @@ class Packer:
 
 
     def __pack_ethernet_data(self, info):
-        ethernet_data = info['ethernet_data']
-        self.__output_file.write(bytes(ethernet_data['destination']))
-        self.__output_file.write(bytes(ethernet_data['source']))
-        self.__pack('>H', ethernet_data['type'])
+        ethernet_header_pack(self.__writer, info['ethernet_data'])
 
         if 'ipv4_data' in info:
             self.__pack_type_ipv4(info)
@@ -147,21 +146,7 @@ class Packer:
 
 
     def __pack_type_ipv4(self, info):
-        ipv4_data = info['ipv4_data']
-        temp = ipv4_data['version'] << 4
-        temp = temp | ipv4_data['header_length']
-        self.__pack('B', temp)
-        self.__pack('>B', ipv4_data['dsf'])
-        self.__pack('>H', ipv4_data['total_length'])
-        self.__pack('>H', ipv4_data['identification'])
-        temp = ipv4_data['flags'] << 13
-        temp = temp | ipv4_data['flagment_offset']
-        self.__pack('>H', temp)
-        self.__pack('>B', ipv4_data['ttl'])
-        self.__pack('>B', ipv4_data['protocol'])
-        self.__pack('>H', ipv4_data['header_checksum'])
-        self.__output_file.write(bytes(ipv4_data['source']))
-        self.__output_file.write(bytes(ipv4_data['destination']))
+        ipv4_header_pack(self.__writer, info['ipv4_data'])
 
         if 'tcp_data' in info:
             self.__pack_protocol_tcp(info)
@@ -172,60 +157,14 @@ class Packer:
 
 
     def __pack_protocol_tcp(self, info):
-        tcp_data = info['tcp_data']
-        self.__pack('>H', tcp_data['source_port'])
-        self.__pack('>H', tcp_data['destination_port'])
-        self.__pack('>L', tcp_data['seq_num'])
-        self.__pack('>L', tcp_data['ack_num'])
-        temp = tcp_data['header_length'] << 12
-        temp = temp | tcp_data['flags']
-        self.__pack('>H', temp)
-        self.__pack('>H', tcp_data['window_size'])
-        self.__pack('>H', tcp_data['checksum'])
-        self.__pack('>H', tcp_data['urgent_pointer'])
-
-        if 'options' in tcp_data:
-            for option in tcp_data['options']:
-                if option == 'end':
-                    self.__pack('>B', 0)
-                    break
-                elif option == 'nop':
-                    self.__pack('>B', 1)
-                    continue
-                elif option == 'sack_permitted':
-                    self.__pack('>B', 4)
-                    self.__pack('>B', 2)
-                    continue
-                elif isinstance(option, list):
-                    self.__output_write(bytes(option))
-                    continue
-
-                option_key = next(iter(option))
-                option_value = option[option_key]
-                if option_key == 'max_segment_size':
-                    self.__pack('>B', 2)
-                    self.__pack('>B', 4)
-                    self.__pack('>H', option_value)
-                elif option_key == 'window_scale':
-                    self.__pack('>B', 3)
-                    self.__pack('>B', 3)
-                    self.__pack('>B', option_value)
-                elif option_key == 'timestamps':
-                    self.__pack('>B', 8)
-                    self.__pack('>B', 10)
-                    self.__pack('>L', option_value[0])
-                    self.__pack('>L', option_value[1])
+        tcp_header_pack(self.__writer, info['tcp_data'])
 
         if 'unknown_payload' in info:
             self.__pack_unknown_payload(info)
 
 
     def __pack_protocol_udp(self, info):
-        udp_data = info['udp_data']
-        self.__pack('>H', udp_data['source_port'])
-        self.__pack('>H', udp_data['destination_port'])
-        self.__pack('>H', udp_data['length'])
-        self.__pack('>H', udp_data['checksum'])
+        udp_header_pack(self.__writer, info['udp_data'])
 
         if 'unknown_payload' in info:
             self.__pack_unknown_payload(info)
