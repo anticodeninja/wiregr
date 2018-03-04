@@ -25,13 +25,67 @@ class YamlProcessor(BaseWorker):
             self._writer.write(info)
 
 
+class FixLengths:
+
+    def process(self, info):
+
+        if info['block_type'] != 0x6:
+            return
+
+        total_length = 0
+
+        if 'unknown_payload' in info:
+            total_length += len(info['unknown_payload'])
+
+        if 'udp_data' in info:
+            udp_data = info['udp_data']
+
+            phw = StructWriter(io.BytesIO())
+            udp_header_pack(phw, udp_data)
+
+            udp_data['length'] = phw.stream.tell() + total_length
+            total_length += phw.stream.tell()
+
+        if 'tcp_data' in info:
+            tcp_data = info['tcp_data']
+
+            phw = StructWriter(io.BytesIO())
+            tcp_header_pack(phw, tcp_data)
+
+            tcp_data['header_length'] = phw.stream.tell() // 4
+            total_length += phw.stream.tell()
+
+        if 'ipv4_data' in info:
+            ipv4_data = info['ipv4_data']
+
+            phw = StructWriter(io.BytesIO())
+            ipv4_header_pack(phw, ipv4_data)
+
+            ipv4_data['total_length'] = phw.stream.tell() + total_length
+            total_length += phw.stream.tell()
+
+        if 'ethernet_data' in info:
+            ethernet_data = info['ethernet_data']
+
+            phw = StructWriter(io.BytesIO())
+            ethernet_header_pack(phw, ethernet_data)
+
+            total_length += phw.stream.tell()
+
+        if info['captured_length'] == info['packet_length']:
+            info['packet_length'] = total_length
+        info['captured_length'] = total_length
+
+
 class FixChecksums:
 
     def process(self, info):
 
+        if info['block_type'] != 0x6:
+            return
+
         if 'ipv4_data' in info:
             ipv4_data = info['ipv4_data']
-            old_checksum = ipv4_data['header_checksum']
             ipv4_data['header_checksum'] = 0
 
             phw = StructWriter(io.BytesIO())
@@ -40,7 +94,6 @@ class FixChecksums:
 
         if 'udp_data' in info:
             udp_data = info['udp_data']
-            old_checksum = udp_data['checksum']
             udp_data['checksum'] = 0
 
             phw = StructWriter(io.BytesIO())
@@ -57,7 +110,6 @@ class FixChecksums:
 
         if 'tcp_data' in info:
             tcp_data = info['tcp_data']
-            old_checksum = tcp_data['checksum']
             tcp_data['checksum'] = 0
 
             phw = StructWriter(io.BytesIO())

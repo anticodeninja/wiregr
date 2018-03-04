@@ -56,5 +56,35 @@ class TestBasicScenarios(unittest.TestCase):
         self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--fix-checksums'])
 
 
+    def test_yaml_process_recalc_len_rtp(self):
+        self.configure_files('rtp_sample.yaml', 'rtp_sample.yaml')
+        self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--fix-lengths'])
+
+
+    def test_pcap2yaml_rtsp(self):
+        self.configure_files('rtsp_sample.pcapng', 'rtsp_sample.yaml')
+        self.run_and_check(['wiregr', 'pcap2yaml', self.input_file, self.output_file])
+
+
+    def test_yaml2pcap_rtsp(self):
+        self.configure_files('rtsp_sample.yaml', 'rtsp_sample.pcapng')
+        self.run_and_check(['wiregr', 'yaml2pcap', self.input_file, self.output_file])
+
+
+    def test_yaml_process_dummy_rtsp(self):
+        self.configure_files('rtsp_sample.yaml', 'rtsp_sample.yaml')
+        self.run_and_check(['wiregr', 'process', self.input_file, self.output_file])
+
+
+    def test_yaml_process_fix_checksums_rtsp(self):
+        self.configure_files('rtsp_sample.yaml', 'rtsp_sample.yaml')
+        self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--fix-checksums'])
+
+
+    def test_yaml_process_recalc_len_rtsp(self):
+        self.configure_files('rtsp_sample.yaml', 'rtsp_sample.yaml')
+        self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--fix-lengths'])
+
+
 if __name__ == '__main__':
     unittest.main()
