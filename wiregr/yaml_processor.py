@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import argparse
 import datetime
 import yaml
 import struct
@@ -9,11 +8,11 @@ import sys
 import io
 from collections import OrderedDict
 
-from common import *
-from packets import *
+from .common import *
+from .packets import *
 
 
-class MegaProcessor(BaseWorker):
+class YamlProcessor(BaseWorker):
 
     def __init__(self, input_file, output_file, processors):
         super().__init__(input_file, False, output_file, False)
@@ -28,7 +27,7 @@ class MegaProcessor(BaseWorker):
 
 class FixChecksums:
 
-    def process(info):
+    def process(self, info):
 
         if 'ipv4_data' in info:
             ipv4_data = info['ipv4_data']
@@ -74,16 +73,3 @@ class FixChecksums:
 
             tcp_data['checksum'] = HexInt(calc_carry_add_checksum(phw.stream))
 
-
-parser = argparse.ArgumentParser()
-parser.add_argument('input_file', nargs='?', default='-', help='input file')
-parser.add_argument('output_file', nargs='?', default='-', help='output file')
-parser.add_argument('--fix-checksums', action='store_true', help='fix header checksums')
-args = parser.parse_args()
-
-processors = []
-if args.fix_checksums:
-    processors.append(FixChecksums)
-
-with MegaProcessor(args.input_file, args.output_file, processors) as mega_processor:
-    mega_processor.process()

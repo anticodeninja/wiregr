@@ -1,17 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import argparse
 import datetime
 import yaml
 import struct
 import sys
 from collections import OrderedDict
 
-from common import *
-from packets import *
+from wiregr.common import *
+from wiregr.packets import *
 
-class Packer(BaseWorker):
+class PcapWriter(BaseWorker):
 
     def __init__(self, input_file, output_file):
         super().__init__(input_file, False, output_file, True)
@@ -19,7 +18,7 @@ class Packer(BaseWorker):
         self.__interfaces = []
 
 
-    def pack(self):
+    def process(self):
         for info in self._reader.read():
             if info['block_type'] == 0x0A0D0D0A:
                 self._configure_endianess(info['magic'])
@@ -46,6 +45,7 @@ class Packer(BaseWorker):
             self.__pack(self.fmt_uint32, block_total_length)
             self._output_file.seek(end_offset, ABSOLUTE)
             self.__pack(self.fmt_uint32, block_total_length)
+
 
     def __pack_section_header(self, info):
         self.__pack(self.fmt_uint32, MAGIC)
@@ -210,11 +210,3 @@ class Packer(BaseWorker):
     def __pack_unknown_payload(self, info):
         self.__pack_aligned(lambda: self._output_file.write(bytes(info['unknown_payload'])), 4)
 
-
-parser = argparse.ArgumentParser()
-parser.add_argument('input_file', help='input file')
-parser.add_argument('output_file', nargs='?', default='-', help='output file')
-args = parser.parse_args()
-
-with Packer(args.input_file, args.output_file) as packer:
-    packer.pack()

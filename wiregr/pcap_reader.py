@@ -1,24 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import argparse
 import datetime
 import yaml
 import struct
 import sys
 from collections import OrderedDict
 
-from common import *
-from packets import *
+from wiregr.common import *
+from wiregr.packets import *
 
-class Parser(BaseWorker):
+class PcapReader(BaseWorker):
 
     def __init__(self, input_file, output_file):
         super().__init__(input_file, True, output_file, False)
         self._configure_endianess(MAGIC)
         self.__interfaces = []
 
-    def parse(self):
+    def process(self):
         while True:
             temp = self._input_file.read(4)
             if len(temp) == 0:
@@ -209,11 +208,3 @@ class Parser(BaseWorker):
         ticks = self.__unpack(self.fmt_uint32) << 32 | self.__unpack(self.fmt_uint32)
         return datetime.datetime(1970, 1, 1) + datetime.timedelta(0, ticks * tsresol)
 
-
-parser = argparse.ArgumentParser()
-parser.add_argument('input_file', help='input file')
-parser.add_argument('output_file', nargs='?', default='-', help='output file')
-args = parser.parse_args()
-
-with Parser(args.input_file, args.output_file) as parser:
-    parser.parse()

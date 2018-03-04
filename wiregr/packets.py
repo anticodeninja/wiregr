@@ -4,7 +4,7 @@
 import yaml
 from collections import OrderedDict
 
-from common import *
+from wiregr.common import *
 
 LINKTYPE_ETHERNET = 1
 
@@ -172,3 +172,4 @@ def tcp_header_pack(writer, info):
             writer.pack_fmt('>B', 10)
             writer.pack_fmt('>L', option_value[0])
             writer.pack_fmt('>L', option_value[1])
+
