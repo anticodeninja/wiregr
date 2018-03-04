@@ -52,30 +52,34 @@ class PcapWriter(BaseWorker):
         self.__pack(self.fmt_uint16, info['major_version'])
         self.__pack(self.fmt_uint16, info['minor_version'])
         self.__pack(self.fmt_uint64, info['section_length'])
-        self.__pack_options(info['options'], {
-            'shb_hardware': (2, self.__pack_utf8),
-            'shb_os': (3, self.__pack_utf8),
-            'shb_userappl': (4, self.__pack_utf8)
-        })
+
+        if 'options' in info:
+            self.__pack_options(info['options'], {
+                'shb_hardware': (2, self.__pack_utf8),
+                'shb_os': (3, self.__pack_utf8),
+                'shb_userappl': (4, self.__pack_utf8)
+            })
 
 
     def __pack_interface_description_block(self, info):
         interface_param = InterfaceParam()
         interface_param.link_type = info['link_type']
-        if 'if_tsresol' in info['options']:
+        if 'options' in info and 'if_tsresol' in info['options']:
             interface_param.tsresol = info['options']['if_tsresol']['base'] ** (-info['options']['if_tsresol']['power'])
         self.__interfaces.append(interface_param)
 
         self.__pack(self.fmt_uint16, info['link_type'])
         self.__pack(self.fmt_uint16, 0) # RESERVED
         self.__pack(self.fmt_uint32, info['snapshot_length'])
-        self.__pack_options(info['options'], {
-            'if_name': (2, self.__pack_utf8),
-            'if_description': (3, self.__pack_utf8),
-            'if_tsresol': (9, self.__pack_tsresol),
-            'if_filter': (11, self.__pack_utf8),
-            'if_os': (12, self.__pack_utf8)
-        })
+
+        if 'options' in info:
+            self.__pack_options(info['options'], {
+                'if_name': (2, self.__pack_utf8),
+                'if_description': (3, self.__pack_utf8),
+                'if_tsresol': (9, self.__pack_tsresol),
+                'if_filter': (11, self.__pack_utf8),
+                'if_os': (12, self.__pack_utf8)
+            })
 
 
     def __pack_enhanced_packet_block(self, info):
@@ -103,12 +107,13 @@ class PcapWriter(BaseWorker):
         self.__pack(self.fmt_uint32, info['interface_id'])
         self.__pack_timestamp(10 ** -6, info['datetime'])
 
-        self.__pack_options(info['options'], {
-            'isb_starttime': (2, lambda x: self.__pack_timestamp(10 ** -6, x)),
-            'isb_endtime': (3, lambda x: self.__pack_timestamp(10 ** -6, x)),
-            'isb_ifrecv': (4, lambda x: self.__pack(self.fmt_uint64, x)),
-            'isb_ifdrop': (5, lambda x: self.__pack(self.fmt_uint64, x)),
-        })
+        if 'options' in info:
+            self.__pack_options(info['options'], {
+                'isb_starttime': (2, lambda x: self.__pack_timestamp(10 ** -6, x)),
+                'isb_endtime': (3, lambda x: self.__pack_timestamp(10 ** -6, x)),
+                'isb_ifrecv': (4, lambda x: self.__pack(self.fmt_uint64, x)),
+                'isb_ifdrop': (5, lambda x: self.__pack(self.fmt_uint64, x)),
+            })
 
 
     def __pack_ethernet_data(self, info):

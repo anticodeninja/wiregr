@@ -30,7 +30,7 @@ class PcapReader(BaseWorker):
             info = OrderedDict()
             info['block_type'] = HexInt(struct.unpack(self.fmt_uint32, temp)[0])
             if info['block_type'] == 0x0A0D0D0A:
-                block_length_pre = self.__parse_section_header(info, block_length_pre)
+                block_length_pre = self.__parse_section_header(info, start_offset, block_length_pre)
             elif info['block_type'] == 0x00000001:
                 self.__parse_interface_description_block(info, end_offset)
             elif info['block_type'] == 0x00000005:
@@ -46,38 +46,45 @@ class PcapReader(BaseWorker):
 
             self._writer.write(info)
 
-    def __parse_section_header(self, info, block_length_pre):
+    def __parse_section_header(self, info, start_offset, block_length_pre):
         old_fmt_uint32 = self.fmt_uint32
 
         info['magic'] = HexInt(self.__unpack(self.fmt_uint32))
         self._configure_endianess(info['magic'])
+        block_length_pre = struct.unpack(self.fmt_uint32, struct.pack(old_fmt_uint32, block_length_pre))[0]
+        end_offset = start_offset + block_length_pre - 8
+
         info['major_version'] = self.__unpack(self.fmt_uint16)
         info['minor_version'] = self.__unpack(self.fmt_uint16)
         info['section_length'] = HexInt(self.__unpack(self.fmt_uint64))
-        info['options'] = self.__parse_options({
-            2: ('shb_hardware', self.__unpack_utf8),
-            3: ('shb_os', self.__unpack_utf8),
-            4: ('shb_userappl', self.__unpack_utf8)
-        })
 
-        return struct.unpack(self.fmt_uint32, struct.pack(old_fmt_uint32, block_length_pre))[0]
+        if self._input_file.tell() < end_offset:
+            info['options'] = self.__parse_options({
+                2: ('shb_hardware', self.__unpack_utf8),
+                3: ('shb_os', self.__unpack_utf8),
+                4: ('shb_userappl', self.__unpack_utf8)
+            })
+
+        return block_length_pre
 
 
     def __parse_interface_description_block(self, info, end_offset):
         info['link_type'] = self.__unpack(self.fmt_uint16)
         self.__unpack(self.fmt_uint16) # RESERVED
         info['snapshot_length'] = self.__unpack(self.fmt_uint32)
-        info['options'] = self.__parse_options({
-            2: ('if_name', self.__unpack_utf8),
-            3: ('if_description', self.__unpack_utf8),
-            9: ('if_tsresol', self.__unpack_tsresol),
-            11: ('if_filter', self.__unpack_utf8),
-            12: ('if_os', self.__unpack_utf8),
-        })
+
+        if self._input_file.tell() < end_offset:
+            info['options'] = self.__parse_options({
+                2: ('if_name', self.__unpack_utf8),
+                3: ('if_description', self.__unpack_utf8),
+                9: ('if_tsresol', self.__unpack_tsresol),
+                11: ('if_filter', self.__unpack_utf8),
+                12: ('if_os', self.__unpack_utf8),
+            })
 
         interface_param = InterfaceParam()
         interface_param.link_type = info['link_type']
-        if 'if_tsresol' in info['options']:
+        if 'options' in info and 'if_tsresol' in info['options']:
             interface_param.tsresol = info['options']['if_tsresol']['base'] ** (-info['options']['if_tsresol']['power'])
         self.__interfaces.append(interface_param)
 
@@ -112,12 +119,13 @@ class PcapReader(BaseWorker):
         info['interface_id'] = self.__unpack(self.fmt_uint32)
         info['datetime'] = self.__unpack_timestamp(10 ** -6)
 
-        info['options'] = self.__parse_options({
-            2: ('isb_starttime', lambda x: self.__unpack_timestamp(10 ** -6)),
-            3: ('isb_endtime', lambda x: self.__unpack_timestamp(10 ** -6)),
-            4: ('isb_ifrecv', lambda x: self.__unpack(self.fmt_uint64)),
-            5: ('isb_ifdrop', lambda x: self.__unpack(self.fmt_uint64)),
-        })
+        if self._input_file.tell() < end_offset:
+            info['options'] = self.__parse_options({
+                2: ('isb_starttime', lambda x: self.__unpack_timestamp(10 ** -6)),
+                3: ('isb_endtime', lambda x: self.__unpack_timestamp(10 ** -6)),
+                4: ('isb_ifrecv', lambda x: self.__unpack(self.fmt_uint64)),
+                5: ('isb_ifdrop', lambda x: self.__unpack(self.fmt_uint64)),
+            })
 
 
     def __parse_ethernet_data(self, info, end_offset):
