@@ -20,7 +20,7 @@ setup(
     name='wiregr',
     version='0.1.0',
 
-    description='wireshark dissector regression helper utils',
+    description='Wireshark Dissector Regression Utils',
     long_description=long_description,
 
     url='https://github.com/anticodeninja/wiregr',
