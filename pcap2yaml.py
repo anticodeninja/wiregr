@@ -15,7 +15,7 @@ class Parser(BaseWorker):
 
     def __init__(self, input_file, output_file):
         super().__init__(input_file, True, output_file, False)
-        self.__configure_endianess(MAGIC)
+        self._configure_endianess(MAGIC)
         self.__interfaces = []
 
     def parse(self):
@@ -25,12 +25,13 @@ class Parser(BaseWorker):
                 break
 
             start_offset = self._input_file.tell()
-            end_offset = start_offset + self.__unpack(self.fmt_uint32) - 8
+            block_length_pre = self.__unpack(self.fmt_uint32)
+            end_offset = start_offset + block_length_pre - 8
 
             info = OrderedDict()
             info['block_type'] = HexInt(struct.unpack(self.fmt_uint32, temp)[0])
             if info['block_type'] == 0x0A0D0D0A:
-                self.__parse_section_header(info, end_offset)
+                block_length_pre = self.__parse_section_header(info, block_length_pre)
             elif info['block_type'] == 0x00000001:
                 self.__parse_interface_description_block(info, end_offset)
             elif info['block_type'] == 0x00000005:
@@ -41,22 +42,16 @@ class Parser(BaseWorker):
                 self.__parse_unknown_payload(info, end_offset)
                 print('Unknown block_type', hex(info['block_type']), file=sys.stderr)
 
-            end_offset = self._input_file.tell()
-            self._input_file.seek(start_offset, ABSOLUTE)
-            block_total_length_pre = self.__unpack(self.fmt_uint32)
-            self._input_file.seek(end_offset, ABSOLUTE)
-            block_total_length_post = self.__unpack(self.fmt_uint32)
-            assert block_total_length_pre == block_total_length_post
+            block_length_post = self.__unpack(self.fmt_uint32)
+            assert block_length_pre == block_length_post
 
             self._writer.write(info)
 
-    def __parse_section_header(self, info, end_offset):
-        # re-calculate end_offset after detection endianess
-        self.__configure_endianess(self.__unpack(self.fmt_uint32))
-        self._input_file.seek(-8, RELATIVE)
-        end_offset = self._input_file.tell() + self.__unpack(self.fmt_uint32) - 12
+    def __parse_section_header(self, info, block_length_pre):
+        old_fmt_uint32 = self.fmt_uint32
 
         info['magic'] = HexInt(self.__unpack(self.fmt_uint32))
+        self._configure_endianess(info['magic'])
         info['major_version'] = self.__unpack(self.fmt_uint16)
         info['minor_version'] = self.__unpack(self.fmt_uint16)
         info['section_length'] = HexInt(self.__unpack(self.fmt_uint64))
@@ -65,6 +60,8 @@ class Parser(BaseWorker):
             3: ('shb_os', self.__unpack_utf8),
             4: ('shb_userappl', self.__unpack_utf8)
         })
+
+        return struct.unpack(self.fmt_uint32, struct.pack(old_fmt_uint32, block_length_pre))[0]
 
 
     def __parse_interface_description_block(self, info, end_offset):
@@ -211,14 +208,6 @@ class Parser(BaseWorker):
     def __unpack_timestamp(self, tsresol):
         ticks = self.__unpack(self.fmt_uint32) << 32 | self.__unpack(self.fmt_uint32)
         return datetime.datetime(1970, 1, 1) + datetime.timedelta(0, ticks * tsresol)
-
-
-    def __configure_endianess(self, magic):
-        prefix = '>' if magic == MAGIC else '<'
-        self.fmt_uint8 = prefix + 'B'
-        self.fmt_uint16 = prefix + 'H'
-        self.fmt_uint32 = prefix + 'L'
-        self.fmt_uint64 = prefix + 'Q'
 
 
 parser = argparse.ArgumentParser()

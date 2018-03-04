@@ -13,14 +13,17 @@ from packets import *
 
 class Packer(BaseWorker):
 
-    def __init__(self, input_file, output_file, endianess):
+    def __init__(self, input_file, output_file):
         super().__init__(input_file, False, output_file, True)
-        self.__configure_endianess(endianess)
+        self._configure_endianess(MAGIC)
         self.__interfaces = []
 
 
     def pack(self):
         for info in self._reader.read():
+            if info['block_type'] == 0x0A0D0D0A:
+                self._configure_endianess(info['magic'])
+
             self.__pack(self.fmt_uint32, info['block_type'])
             start_offset = self._output_file.tell()
             self.__pack(self.fmt_uint32, 0)
@@ -45,7 +48,7 @@ class Packer(BaseWorker):
             self.__pack(self.fmt_uint32, block_total_length)
 
     def __pack_section_header(self, info):
-        self.__pack(self.fmt_uint32, info['magic'])
+        self.__pack(self.fmt_uint32, MAGIC)
         self.__pack(self.fmt_uint16, info['major_version'])
         self.__pack(self.fmt_uint16, info['minor_version'])
         self.__pack(self.fmt_uint64, info['section_length'])
@@ -208,19 +211,10 @@ class Packer(BaseWorker):
         self.__pack_aligned(lambda: self._output_file.write(bytes(info['unknown_payload'])), 4)
 
 
-    def __configure_endianess(self, endianess):
-        prefix = '>' if endianess == 'big' else '<'
-        self.fmt_uint8 = prefix + 'B'
-        self.fmt_uint16 = prefix + 'H'
-        self.fmt_uint32 = prefix + 'L'
-        self.fmt_uint64 = prefix + 'Q'
-
-
 parser = argparse.ArgumentParser()
 parser.add_argument('input_file', help='input file')
 parser.add_argument('output_file', nargs='?', default='-', help='output file')
-parser.add_argument('--endianess', default=sys.byteorder, choices=['big', 'little'], help='simulate endianess of machine')
 args = parser.parse_args()
 
-with Packer(args.input_file, args.output_file, args.endianess) as packer:
+with Packer(args.input_file, args.output_file) as packer:
     packer.pack()

@@ -118,6 +118,14 @@ class BaseWorker:
         if self._output_file != sys.stdout:
             self._output_file.close()
 
+    def _configure_endianess(self, magic):
+        prefix = '>' if magic == MAGIC else '<'
+        self.fmt_uint8 = prefix + 'B'
+        self.fmt_uint16 = prefix + 'H'
+        self.fmt_uint32 = prefix + 'L'
+        self.fmt_uint64 = prefix + 'Q'
+
+
 class YamlReader:
 
     def __init__(self, stream):
