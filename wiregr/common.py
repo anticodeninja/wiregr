@@ -183,6 +183,16 @@ class StructWriter:
             value = bytes(value)
         self.stream.write(value)
 
+    def pack_payload(self, value):
+        payload = []
+        for x in value:
+            if isinstance(x, int):
+                payload.append(x)
+            elif isinstance(x, str):
+                payload.extend(x.encode('utf-8'))
+        payload = bytes(payload)
+
+        self.stream.write(payload)
 
 def align_value(value, multiplier):
     if value % multiplier == 0:

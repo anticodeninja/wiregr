@@ -1,0 +1,50 @@
+block_type: 0xa0d0d0a
+magic: 0x4d3c2b1a
+major_version: 1
+minor_version: 0
+section_length: 0xffffffffffffffff
+
+block_type: 0x1
+link_type: 1
+snapshot_length: 65535
+
+block_type: 0x6
+interface_id: 0
+datetime: 2008-07-17 07:50:48.287657
+captured_length: 231
+packet_length: 231
+ethernet_data:
+  destination: [0x0, 0x0, 0x0, 0x0, 0x0, 0x0]
+  source: [0x0, 0x0, 0x0, 0x0, 0x0, 0x0]
+  type: 2048
+ipv4_data:
+  version: 4
+  header_length: 5
+  dsf: 0x8
+  total_length: 217
+  identification: 0x65d0
+  flags: 0x2
+  flagment_offset: 0
+  ttl: 64
+  protocol: 6
+  header_checksum: 0x50fa
+  source: [192, 168, 0, 254]
+  destination: [192, 168, 0, 254]
+tcp_data:
+  source_port: 56162
+  destination_port: 3306
+  seq_num: 3436755970
+  ack_num: 3442776202
+  header_length: 8
+  flags: 24
+  window_size: 530
+  checksum: 0x2c8c
+  urgent_pointer: 0
+  options:
+  - nop
+  - nop
+  - timestamps: [15808765, 15791314]
+unknown_payload: [0xa1, 0x0, 0x0, 0x0, 0x3, 'create table foo (id BIGINT( 10 ) UNSIGNED
+    NOT NULL AUTO_INCREMENT PRIMARY KEY, animal VARCHAR(64) NOT NULL, name VARCHAR(64)
+    NULL DEFAULT NULL) ENGINE = MYISAM']
+

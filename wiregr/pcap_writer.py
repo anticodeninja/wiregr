@@ -217,5 +217,5 @@ class PcapWriter(BaseWorker):
 
 
     def __pack_unknown_payload(self, info):
-        self.__pack_aligned(lambda: self._output_file.write(bytes(info['unknown_payload'])), 4)
+        self.__pack_aligned(lambda: self._writer.pack_payload(info['unknown_payload']), 4)
 

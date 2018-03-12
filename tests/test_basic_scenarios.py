@@ -66,6 +66,11 @@ class TestBasicScenarios(unittest.TestCase):
         self.run_and_check(['wiregr', 'pcap2yaml', self.input_file, self.output_file])
 
 
+    def test_yaml2pcap_mixed_payload_mysql(self):
+        self.configure_files('mysql_sample.yaml', 'mysql_sample.pcapng')
+        self.run_and_check(['wiregr', 'yaml2pcap', self.input_file, self.output_file])
+
+
     def test_yaml2pcap_rtsp(self):
         self.configure_files('rtsp_sample.yaml', 'rtsp_sample.pcapng')
         self.run_and_check(['wiregr', 'yaml2pcap', self.input_file, self.output_file])
@@ -94,6 +99,11 @@ class TestBasicScenarios(unittest.TestCase):
     def test_yaml_process_fix_stream_mysql_cont(self):
         self.configure_files('mysql_sample_cont.yaml', 'mysql_sample_cont.yaml')
         self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--fix-tcp-streams'])
+
+
+    def test_yaml_process_mixed_payload_mysql(self):
+        self.configure_files('mysql_sample.yaml', 'mysql_sample.yaml')
+        self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--fix-lengths', '--fix-checksums'])
 
 
 if __name__ == '__main__':

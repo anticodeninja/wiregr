@@ -39,7 +39,9 @@ class FixLengths:
         total_length = 0
 
         if 'unknown_payload' in info:
-            total_length += len(info['unknown_payload'])
+            phw = StructWriter(io.BytesIO())
+            phw.pack_payload(info['unknown_payload'])
+            total_length += phw.stream.tell()
 
         if 'udp_data' in info:
             udp_data = info['udp_data']
@@ -108,7 +110,7 @@ class FixChecksums:
                 phw.pack_fmt('>H', ipv4_data['total_length'] - 4 * ipv4_data['header_length'])
 
             udp_header_pack(phw, udp_data)
-            phw.pack_bytes(info['unknown_payload'])
+            phw.pack_payload(info['unknown_payload'])
 
             udp_data['checksum'] = HexInt(calc_carry_add_checksum(phw.stream))
 
@@ -125,7 +127,7 @@ class FixChecksums:
 
             tcp_header_pack(phw, tcp_data)
             if 'unknown_payload' in info:
-                phw.pack_bytes(info['unknown_payload'])
+                phw.pack_payload(info['unknown_payload'])
 
             tcp_data['checksum'] = HexInt(calc_carry_add_checksum(phw.stream))
 
