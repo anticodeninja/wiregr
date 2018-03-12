@@ -25,6 +25,7 @@ def main():
     yaml_process.add_argument('output_file', nargs='?', default='-', help='output file')
     yaml_process.add_argument('--fix-lengths', action='store_true', help='fix header lengths')
     yaml_process.add_argument('--fix-checksums', action='store_true', help='fix header checksums')
+    yaml_process.add_argument('--fix-tcp-streams', action='store_true', help='fix tcp seq/ack numbers')
 
     args = parser.parse_args()
 
@@ -41,6 +42,8 @@ def main():
         processors = []
         if args.fix_lengths:
             processors.append(module.FixLengths())
+        if args.fix_tcp_streams:
+            processors.append(module.FixTcpStreams())
         if args.fix_checksums:
             processors.append(module.FixChecksums())
         with module.YamlProcessor(args.input_file, args.output_file, processors) as processor:

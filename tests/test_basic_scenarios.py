@@ -86,5 +86,15 @@ class TestBasicScenarios(unittest.TestCase):
         self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--fix-lengths'])
 
 
+    def test_yaml_process_fix_stream_mysql_start(self):
+        self.configure_files('mysql_sample_start.yaml', 'mysql_sample_start.yaml')
+        self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--fix-tcp-streams'])
+
+
+    def test_yaml_process_fix_stream_mysql_cont(self):
+        self.configure_files('mysql_sample_cont.yaml', 'mysql_sample_cont.yaml')
+        self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--fix-tcp-streams'])
+
+
 if __name__ == '__main__':
     unittest.main()
