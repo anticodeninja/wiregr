@@ -31,7 +31,7 @@ setup(
     license=license,
 
     packages=find_packages(),
-    install_requires = ['pyyaml'],
+    install_requires = ['pyyaml', 'python-dateutil'],
 
     entry_points={
         'console_scripts': [

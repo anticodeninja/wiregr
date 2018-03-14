@@ -86,7 +86,7 @@ class TestBasicScenarios(unittest.TestCase):
         self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--fix-checksums'])
 
 
-    def test_yaml_process_recalc_len_rtsp(self):
+    def test_yaml_process_fix_len_rtsp(self):
         self.configure_files('rtsp_sample.yaml', 'rtsp_sample.yaml')
         self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--fix-lengths'])
 
@@ -106,9 +106,14 @@ class TestBasicScenarios(unittest.TestCase):
         self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--fix-lengths', '--fix-checksums'])
 
 
-    def test_yaml_process_rtsp_clean_mac(self):
+    def test_yaml_process_clean_mac_rtsp(self):
         self.configure_files('rtsp_sample.yaml', 'rtsp_sample_zeromac.yaml')
         self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--clean-mac'])
+
+
+    def test_yaml_process_move_timeline_mysql(self):
+        self.configure_files('mysql_sample_start.yaml', 'mysql_sample_start_2018.yaml')
+        self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--move-timeline', '2018-01-01'])
 
 
 if __name__ == '__main__':

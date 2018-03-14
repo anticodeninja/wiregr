@@ -6,6 +6,7 @@
 # with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import argparse
+import dateutil.parser
 
 def main():
     parser = argparse.ArgumentParser(description="Synchronize org-mode files with cloud.")
@@ -23,6 +24,8 @@ def main():
     yaml_process = subparsers.add_parser('process', help='process yaml file.')
     yaml_process.add_argument('input_file', nargs='?', default='-', help='input file')
     yaml_process.add_argument('output_file', nargs='?', default='-', help='output file')
+    yaml_process.add_argument('--move-timeline', help='move all traffic to specified start datetime',
+                              type=lambda x: dateutil.parser.parse(x))
     yaml_process.add_argument('--clean-mac', action='store_true', help='clean mac addresses')
     yaml_process.add_argument('--fix-lengths', action='store_true', help='fix header lengths')
     yaml_process.add_argument('--fix-checksums', action='store_true', help='fix header checksums')
@@ -43,6 +46,8 @@ def main():
         processors = []
         if args.clean_mac:
             processors.append(module.CleanMac())
+        if args.move_timeline:
+            processors.append(module.MoveTimeline(args.move_timeline))
         if args.fix_lengths:
             processors.append(module.FixLengths())
         if args.fix_tcp_streams:

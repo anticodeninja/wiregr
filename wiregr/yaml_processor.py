@@ -41,6 +41,22 @@ class CleanMac:
             ethernet_data['source'] = [0, 0, 0, 0, 0, 0]
 
 
+class MoveTimeline:
+
+    def __init__(self, start_time):
+        self.__start_time = start_time
+        self.__timespan = None
+
+    def process(self, info):
+        if info['block_type'] != 0x5 and info['block_type'] != 0x6:
+            return
+
+        if self.__timespan is None:
+            self.__timespan = info['datetime'] - self.__start_time
+
+        info['datetime'] = info['datetime'] - self.__timespan
+
+
 class FixLengths:
 
     def process(self, info):
