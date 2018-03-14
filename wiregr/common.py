@@ -6,6 +6,8 @@
 # with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import yaml
+import os
+import shutil
 import struct
 import sys
 from collections import OrderedDict
@@ -90,7 +92,21 @@ class InterfaceParam:
 
 class BaseWorker:
 
-    def __init__(self, input_file, is_binary_input, output_file, is_binary_output):
+    def __init__(self, input_file, is_binary_input, output_file, target_ext, is_binary_output):
+        if input_file is not None and output_file is None:
+            input_file_pair = os.path.splitext(input_file)
+            output_file = input_file_pair[0] + target_ext
+
+            if input_file == output_file:
+                bkup_file = input_file_pair[0] + '_bkup' + input_file_pair[1]
+                shutil.copyfile(input_file, bkup_file)
+                input_file = bkup_file
+
+        if input_file is None:
+            input_file = '-'
+        if output_file is None:
+            output_file = '-'
+
         if input_file != '-':
             self._input_file = open(input_file, 'r' + ('b' if is_binary_input else ''))
         else:

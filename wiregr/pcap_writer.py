@@ -17,7 +17,7 @@ from wiregr.packets import *
 class PcapWriter(BaseWorker):
 
     def __init__(self, input_file, output_file):
-        super().__init__(input_file, False, output_file, True)
+        super().__init__(input_file, False, output_file, '.pcapng', True)
         self._configure_endianess(MAGIC)
         self.__interfaces = []
 

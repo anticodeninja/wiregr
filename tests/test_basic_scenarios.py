@@ -23,10 +23,14 @@ class TestBasicScenarios(unittest.TestCase):
         shutil.rmtree(self.test_dir)
 
 
-    def configure_files(self, input_name, output_name):
+    def configure_files(self, input_name, output_name, shorten=False):
         self.input_file = os.path.join(self.data_dir, input_name)
+        self.copied_file = os.path.join(self.test_dir, input_name)
         self.output_file = os.path.join(self.test_dir, output_name)
         self.ref_file = os.path.join(self.data_dir, output_name)
+
+        if shorten:
+            shutil.copyfile(self.input_file, self.copied_file)
 
 
     def run_and_check(self, argv):
@@ -41,14 +45,29 @@ class TestBasicScenarios(unittest.TestCase):
         self.run_and_check(['wiregr', 'pcap2yaml', self.input_file, self.output_file])
 
 
+    def test_pcap2yaml_rtp_shorten_args(self):
+        self.configure_files('rtp_sample.pcapng', 'rtp_sample.yaml', True)
+        self.run_and_check(['wiregr', 'pcap2yaml', self.copied_file])
+
+
     def test_yaml2pcap_rtp(self):
         self.configure_files('rtp_sample.yaml', 'rtp_sample.pcapng')
         self.run_and_check(['wiregr', 'yaml2pcap', self.input_file, self.output_file])
 
 
+    def test_yaml2pcap_rtp_shorten_args(self):
+        self.configure_files('rtp_sample.yaml', 'rtp_sample.pcapng', True)
+        self.run_and_check(['wiregr', 'yaml2pcap', self.copied_file])
+
+
     def test_yaml_process_dummy_rtp(self):
         self.configure_files('rtp_sample.yaml', 'rtp_sample.yaml')
         self.run_and_check(['wiregr', 'process', self.input_file, self.output_file])
+
+
+    def test_yaml_process_dummy_rtp_shorten_args(self):
+        self.configure_files('rtp_sample.yaml', 'rtp_sample.yaml', True)
+        self.run_and_check(['wiregr', 'process', self.copied_file])
 
 
     def test_yaml_process_fix_checksums_rtp(self):

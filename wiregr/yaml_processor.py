@@ -19,7 +19,7 @@ from .packets import *
 class YamlProcessor(BaseWorker):
 
     def __init__(self, input_file, output_file, processors):
-        super().__init__(input_file, False, output_file, False)
+        super().__init__(input_file, False, output_file, '.yaml', False)
         self.__processors = processors
 
     def process(self):

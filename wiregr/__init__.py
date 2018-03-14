@@ -14,16 +14,16 @@ def main():
     subparsers = parser.add_subparsers(dest='command', title='commands')
 
     pcap2yaml = subparsers.add_parser('pcap2yaml', help='convert pcap to yaml.')
-    pcap2yaml.add_argument('input_file', nargs='?', default='-', help='input file')
-    pcap2yaml.add_argument('output_file', nargs='?', default='-', help='output file')
+    pcap2yaml.add_argument('input_file', nargs='?', help='input file')
+    pcap2yaml.add_argument('output_file', nargs='?', help='output file')
 
     yaml2pcap = subparsers.add_parser('yaml2pcap', help='convert yaml to pcap.')
-    yaml2pcap.add_argument('input_file', nargs='?', default='-', help='input file')
-    yaml2pcap.add_argument('output_file', nargs='?', default='-', help='output file')
+    yaml2pcap.add_argument('input_file', nargs='?', help='input file')
+    yaml2pcap.add_argument('output_file', nargs='?', help='output file')
 
     yaml_process = subparsers.add_parser('process', help='process yaml file.')
-    yaml_process.add_argument('input_file', nargs='?', default='-', help='input file')
-    yaml_process.add_argument('output_file', nargs='?', default='-', help='output file')
+    yaml_process.add_argument('input_file', nargs='?', help='input file')
+    yaml_process.add_argument('output_file', nargs='?', help='output file')
     yaml_process.add_argument('--move-timeline', help='move all traffic to specified start datetime',
                               type=lambda x: dateutil.parser.parse(x))
     yaml_process.add_argument('--clean-mac', action='store_true', help='clean mac addresses')

@@ -17,7 +17,7 @@ from wiregr.packets import *
 class PcapReader(BaseWorker):
 
     def __init__(self, input_file, output_file):
-        super().__init__(input_file, True, output_file, False)
+        super().__init__(input_file, True, output_file, '.yaml', False)
         self._configure_endianess(MAGIC)
         self.__interfaces = []
 
