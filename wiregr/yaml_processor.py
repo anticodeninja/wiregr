@@ -29,6 +29,18 @@ class YamlProcessor(BaseWorker):
             self._writer.write(info)
 
 
+class CleanMac:
+
+    def process(self, info):
+        if info['block_type'] != 0x6:
+            return
+
+        if 'ethernet_data' in info:
+            ethernet_data = info['ethernet_data']
+            ethernet_data['destination'] = [0, 0, 0, 0, 0, 0]
+            ethernet_data['source'] = [0, 0, 0, 0, 0, 0]
+
+
 class FixLengths:
 
     def process(self, info):

@@ -106,5 +106,10 @@ class TestBasicScenarios(unittest.TestCase):
         self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--fix-lengths', '--fix-checksums'])
 
 
+    def test_yaml_process_rtsp_clean_mac(self):
+        self.configure_files('rtsp_sample.yaml', 'rtsp_sample_zeromac.yaml')
+        self.run_and_check(['wiregr', 'process', self.input_file, self.output_file, '--clean-mac'])
+
+
 if __name__ == '__main__':
     unittest.main()
