@@ -153,15 +153,23 @@ class YamlReader:
 
     def read(self):
         lines = []
+
         for line in self.stream:
             line = line.strip('\n\r')
             if len(line) > 0:
                 lines.append(line)
                 continue
 
+            yield from self.__parse_block(lines)
+
+        yield from self.__parse_block(lines)
+
+    def __parse_block(self, lines):
+        if len(lines) > 0:
             info = yaml.load('\n'.join(lines), Loader=CustomLoader)
             yield info
-            lines = []
+
+        lines.clear()
 
 
 class YamlWriter:

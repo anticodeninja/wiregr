@@ -65,6 +65,11 @@ class TestBasicScenarios(unittest.TestCase):
         self.run_and_check(['wiregr', 'process', self.input_file, self.output_file])
 
 
+    def test_yaml_process_dummy_mysql_whitespace(self):
+        self.configure_files('mysql_sample_start_whitespace.yaml', 'mysql_sample_start.yaml')
+        self.run_and_check(['wiregr', 'process', self.input_file, self.output_file])
+
+
     def test_yaml_process_dummy_rtp_shorten_args(self):
         self.configure_files('rtp_sample.yaml', 'rtp_sample.yaml', True)
         self.run_and_check(['wiregr', 'process', self.copied_file])
